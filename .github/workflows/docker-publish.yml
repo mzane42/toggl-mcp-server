@@ -6,6 +6,12 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (optional)'
+        required: false
+        type: string
 
 env:
   REGISTRY: docker.io
