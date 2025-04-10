@@ -1,4 +1,4 @@
-FROM node:22.12-alpine AS builder
+FROM node:22.12-bullseye-slim AS builder
 
 # プロジェクトのファイルをコピー
 COPY src /app/src
@@ -12,7 +12,7 @@ RUN --mount=type=cache,target=/root/.npm npm install
 # TypeScriptのコンパイルを実行
 RUN npm run build
 
-FROM node:22-alpine AS release
+FROM node:22-bullseye-slim AS release
 
 COPY --from=builder /app/dist /app/dist
 COPY --from=builder /app/package.json /app/package.json
