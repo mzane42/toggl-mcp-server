@@ -1,0 +1,115 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      release_id: ${{ steps.create_release.outputs.id }}
+    
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Simple changelog generation
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/}
+          fi
+          
+          echo "## What's Changed in $VERSION" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            git log --pretty=format:"- %s (%h)" $LAST_TAG..HEAD >> CHANGELOG.md
+          else
+            git log --pretty=format:"- %s (%h)" HEAD >> CHANGELOG.md
+          fi
+          
+          echo "" >> CHANGELOG.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/commits/$VERSION" >> CHANGELOG.md
+          
+          # Set output for release body
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.version && format('v{0}', github.event.inputs.version) || github.ref_name }}
+          release_name: ${{ github.event.inputs.version && format('Release v{0}', github.event.inputs.version) || github.ref_name }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+
+      - name: Create distribution archive
+        run: |
+          # Create a distribution package
+          mkdir -p toggl-mcp-server-dist
+          cp -r dist/ toggl-mcp-server-dist/
+          cp package.json README.md LICENSE toggl-mcp-server-dist/
+          cp scripts/setup-collaborator.sh toggl-mcp-server-dist/
+          cp .env.example toggl-mcp-server-dist/ || touch toggl-mcp-server-dist/.env.example
+          
+          # Create archive
+          tar -czf toggl-mcp-server.tar.gz toggl-mcp-server-dist/
+          zip -r toggl-mcp-server.zip toggl-mcp-server-dist/
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./toggl-mcp-server.tar.gz
+          asset_name: toggl-mcp-server.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload ZIP Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./toggl-mcp-server.zip
+          asset_name: toggl-mcp-server.zip
+          asset_content_type: application/zip

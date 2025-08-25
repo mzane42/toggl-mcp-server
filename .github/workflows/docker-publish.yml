@@ -1,4 +1,4 @@
-name: Docker Image CI/CD
+name: Toggl MCP Server - Docker CI/CD
 
 on:
   push:
@@ -15,7 +15,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: lyricrime/toggl-mcp-server
+  IMAGE_NAME: bamboo/toggl-mcp-server
 
 jobs:
   build:
@@ -39,6 +39,12 @@ jobs:
 
     - name: Run build
       run: npm run build
+    
+    - name: Run tests (if available)
+      run: |
+        if [ -f "package.json" ] && grep -q "\"test\"" package.json; then
+          npm test || echo "Tests not implemented yet"
+        fi
 
     # DockerHubログイン
     - name: Log in to Docker Hub
@@ -69,8 +75,9 @@ jobs:
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
-          type=sha
+          type=sha,prefix={{date 'YYYY-MM-DD'}}-
           type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=stable,enable={{is_default_branch}}
 
     # ビルドとプッシュ
     - name: Build and push Docker image

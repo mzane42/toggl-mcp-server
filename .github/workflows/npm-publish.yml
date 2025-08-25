@@ -1,0 +1,68 @@
+name: Publish to NPM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      npm_tag:
+        description: 'NPM tag (latest, beta, alpha, etc.)'
+        required: false
+        default: 'latest'
+        type: string
+
+jobs:
+  publish-npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Update package.json for publication
+        run: |
+          # Ensure the package name is scoped and unique
+          npm pkg set name="@bamboo/toggl-mcp-server"
+          npm pkg set main="dist/index.js"
+          npm pkg set bin.toggl-mcp-server="dist/index.js"
+          
+      - name: Publish to NPM
+        run: |
+          TAG="${{ github.event.inputs.npm_tag || 'latest' }}"
+          npm publish --access public --tag $TAG
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  update-readme:
+    needs: publish-npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Update README with NPM badge
+        run: |
+          # Add NPM version badge if not exists
+          if ! grep -q "npm version" README.md; then
+            sed -i '1i[![npm version](https://badge.fury.io/js/%40bamboo%2Ftoggl-mcp-server.svg)](https://badge.fury.io/js/%40bamboo%2Ftoggl-mcp-server)' README.md
+          fi
+          
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add README.md
+          git diff --staged --quiet || git commit -m "Update README with NPM badge"
+          git push

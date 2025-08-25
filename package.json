@@ -1,17 +1,18 @@
 {
   "name": "toggl-mcp-server",
-  "version": "0.0.1",
-  "main": "index.js",
+  "version": "1.0.0",
+  "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": ["toggl", "mcp", "time-tracking", "productivity", "toggl-track"],
+  "author": "Bamboo Team",
+  "license": "MIT",
+  "description": "Toggl Track MCP Server for Bamboo Team - Allows AI assistants to interact with Toggl API for time management.",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.9.0"
   },
